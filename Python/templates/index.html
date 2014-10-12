@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style type="text/css">
+
+svg {
+  font-family: "Helvetica Neue", Helvetica;
+}
+
+.line {
+  fill: none;
+  stroke: #000;
+  stroke-width: 2px;
+}
+
+
+.linePath{
+  fill : none;
+  stroke :red;
+  stroke-width: 2px;
+}
+
+div.bar {
+    display: inline-block;
+    width: 20px;
+    height: 75px;   /* We'll override this later */
+    background-color: teal;
+    margin-right: 2px;
+}
+.axis path,
+.axis line {
+    fill: none;
+    stroke: black;
+    shape-rendering: crispEdges;
+}
+
+.axis text {
+    font-family: sans-serif;
+    font-size: 11px;
+}
+</style>
+<body>
+  <h1>Soil Humidity</h1>
+  <div id="chart"></div>
+  <form name="input" action="/" method="post">
+    Password: <input type="text" name="pass">
+    <input type="submit" value="Submit">
+  </form>
+
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+var dataset = [ {{ListValues}} ];
+//Create SVG element
+var w = 600;
+var h = 400;
+var padding = 40;
+var svg = d3.select("#chart")
+            .append("svg")
+            .attr("width", w)
+            .attr("height", h);
+
+
+var yScale = d3.scale.linear()
+                    .domain([0, 1000])
+                    .range([ h-padding,padding]);
+
+
+var xScale = d3.time.scale()
+                    .domain([d3.min(dataset,function (d) { return d[0]}), d3.max(dataset,function (d) { return d[0]})])
+                    .range([padding, w-padding]);
+
+var xAxis = d3.svg.axis()
+                  .scale(xScale)
+                  .orient("bottom")
+                  .ticks(2)
+                  .tickFormat(d3.time.format('%Y/%m/%d %H'));
+
+var yAxis = d3.svg.axis()
+                  .scale(yScale)
+                  .orient("left")
+                  .ticks(5);
+
+
+var lineFunction = d3.svg.line()
+                        .x(function(d){return xScale(d[0]);})
+                        .y(function(d){return yScale(d[1]);})
+
+
+// svg.selectAll("circle")
+//    .data(dataset)
+//    .enter()
+//    .append("circle")
+//     .attr("fill", "red")   
+//    .attr("cx", function(d) {
+//         return xScale(d[0]);
+//    })
+//    .attr("cy", function(d) {
+//         return yScale(d[1]);
+//    })
+//    .attr("r", 3);
+
+  svg.append("path")
+      .datum(dataset)
+      .attr("class", "linePath")
+      .attr("d", lineFunction);
+
+svg.append("g")
+    .attr("class","axis")
+    .attr("transform","translate(0,"+(h-padding)+")")
+    .call(xAxis);
+//Create Y axis
+svg.append("g")
+    .attr("class", "axis")
+    .attr("transform", "translate(" + padding + ",0)")
+    .call(yAxis);
+
+
+</script>
+</body>
