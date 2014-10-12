@@ -4,12 +4,22 @@ from twisted.protocols import basic
 from twisted.internet import task
 import json
 import datetime
+import time
 import sys
 import cgi
+from GardenerDB import GardenerDB
 
 from twisted.web import server, resource
 from twisted.internet import reactor, endpoints
-comPort = "COM3"
+comPort = "/dev/ttyACM0"
+                
+from jinja2 import Environment, FileSystemLoader
+env = Environment(loader=FileSystemLoader('templates'))
+
+f = open("Password.txt")
+PASSWORD= f.read()
+f.close()
+
 
 
 class ArduGardener(basic.LineReceiver):
@@ -17,11 +27,13 @@ class ArduGardener(basic.LineReceiver):
         self.storage=storage
     def lineReceived(self, line):
         try:
-            recievedData = json.loads(line)
-            recievedData["date"] = datetime.datetime.utcnow()
-            self.storage.add(recievedData)
+            if (len(line)>0):
+                recievedData = json.loads(line)
+                recievedData["time"] = int(time.time())
+                recievedData["value"] = int(recievedData["value"])
+                self.storage._add(time=recievedData["time"],value=recievedData["value"])
         except Exception, e:
-            raise e("invalid string")
+            print 'error', line, e
     def sendCommand(self, cmd):
         self.transport.write(cmd)
     def requestMeasurement(self):
@@ -48,59 +60,38 @@ class Counter(resource.Resource):
     def __init__(self,handler):
         self.db = handler.storage
         self.gardener = handler
+    def ret(self, result, request):
+        value=''
+        for rec in result:
+            value += '['+str(rec[0]*1000)+','+str(rec[1])+'],'
+        template = env.get_template('index.html')
+        request.write(template.render(ListValues=value).encode())
+        request.finish()        
     def render_GET(self, request):
         request.setHeader("content-type", "text/html")
-        self.gardener.requestMeasurement()
-        return """
-<!DOCTYPE html>
-<html>
-<head>
-</head>
-<body>
-        Plant humidity is""" + (self.db.getLastValue())        +"""
- <FORM action="/" method="post">
-    <P>
-    Pass:<input type="text" name="pass">
-    <INPUT type="submit" value="Water"> 
-    </P>
- </FORM>
-</body>
-</html>
-        """
+        self.db.getLastValue(288).addCallback(self.ret,request)
+        return server.NOT_DONE_YET
+
     def render_POST(self, request):
         passw = cgi.escape(request.args["pass"][0])
         request.setHeader("content-type", "text/html")
         print passw
-        if passw == "raulana":
+        if passw == PASSWORD:
             self.gardener.requestPumping()
-        return """
-<!DOCTYPE html>
-<html>
-<head>
-</head>
-<body>
-        Plant humidity is""" + (self.db.getLastValue())        +"""
- <FORM action="/" method="post">
-    <P>
-    Pass:<input type="text" name="pass">
-    <INPUT type="submit" value="Water"> 
-    </P>
- </FORM>
-</body>
-</html>
-        """
+        self.db.getLastValue(288).addCallback(self.ret,request)
+        return server.NOT_DONE_YET
 
 if __name__ == '__main__':
     try:
-        db = Storage()
+        db = GardenerDB('test.sqlite')
         serial =ArduGardener(db)
-
-        SerialPort(serial, 'COM3', reactor, baudrate='19200')
+        SerialPort(serial, comPort, reactor, baudrate='9600')
+        #call class method with object as argument
         l = task.LoopingCall(ArduGardener.requestMeasurement,serial)
-        l.start(60.0) # call every second        
-        endpoints.serverFromString(reactor, "tcp:8080").listen(server.Site(Counter(serial)))
-        serial.sendCommand("r")
+        l.start(300.0) # call every 5 minutes     
+        endpoints.serverFromString(reactor, "tcp:9080").listen(server.Site(Counter(serial)))
         reactor.run()
     except Exception, e:
         print e
+        reactor.stop()
         sys.exit(0)

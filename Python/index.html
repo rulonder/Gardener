@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style type="text/css">
+
+svg {
+  font-family: "Helvetica Neue", Helvetica;
+}
+
+.line {
+  fill: none;
+  stroke: #000;
+  stroke-width: 2px;
+}
+
+div.bar {
+    display: inline-block;
+    width: 20px;
+    background-color: teal;
+    margin-right: 2px;
+}
+
+</style>
+<body>
+
+<p>Plant Humidity</p>
+
+<form action="/" method="post" >
+    <p>
+    Pass ; <input type="text" name="pass"  >
+    <input type="submit" value="Water Them">
+    </p>
+</form>
+
+
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script>
+var dataset = [ {% for value in values %} {{ value }} {% end for %} ];
+
+d3.select("body").selectAll("div")
+    .data(dataset)
+    .enter()
+    .append("div")
+    .attr("class", "bar")
+    .style("height", function(d) {
+        var barHeight = parseInt((1000-d)/7) ;
+        return barHeight + "px";
+    });
+
+</script>
+</body>
